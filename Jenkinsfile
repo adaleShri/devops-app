@@ -3,6 +3,7 @@ pipeline {
 
     environment {
         DOCKER_IMAGE = "adaleshri/devopsexamapp:latest"
+        SCANNER_HOME = tool 'sonar-scanner'
     }
 
     stages {
