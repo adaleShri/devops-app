@@ -12,6 +12,28 @@ pipeline {
                     branch: 'main'
             }
         }
+         stage('File System Scan') {
+            steps {
+                sh "trivy fs --scanners vuln,misconfig --format table -o trivy-fs-report.html ."
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('sonar-server') {
+                    sh """
+                        ${SCANNER_HOME}/bin/sonar-scanner \
+                        -Dsonar.projectName=devops-exam-app \
+                        -Dsonar.projectKey=devops-exam-app \
+                        -Dsonar.sources=. \
+                        -Dsonar.exclusions=**/*.java \
+                        -Dsonar.python.version=3 \
+                        -Dsonar.host.url=http://localhost:9000
+                    """
+                }
+            }
+        }
+
 
         stage('Verify Docker Compose') {
             steps {
