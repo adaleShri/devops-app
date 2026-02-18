@@ -1,5 +1,3 @@
-Docker Push Is Not Included Below
-
 pipeline {
     agent any
 
@@ -10,7 +8,7 @@ pipeline {
     stages {
         stage('Git Checkout') {
             steps {
-                git url: 'https://github.com/KastroVKiran/devops-exam-app.git', 
+                git url: 'https://github.com/adaleshri/devops-exam-app.git', 
                     branch: 'master'
             }
         }
