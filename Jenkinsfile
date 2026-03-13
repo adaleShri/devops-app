@@ -56,15 +56,14 @@ pipeline {
             }
         }
 
-        stage('Push to Docker Hub') {
+        // NEW STAGE: Push to Docker Hub
+stage('Push to Docker Hub') {
     steps {
         script {
-            def IMAGE_TAG = "${BUILD_NUMBER}"
-
             withDockerRegistry(credentialsId: 'docker-creds', toolName: 'docker') {
                 sh """
-                docker tag ${DOCKER_IMAGE}:latest ${DOCKER_IMAGE}:${IMAGE_TAG}
-                docker push ${DOCKER_IMAGE}:${IMAGE_TAG}
+                docker tag ${DOCKER_IMAGE}:latest ${DOCKER_IMAGE}:${BUILD_NUMBER}
+                docker push ${DOCKER_IMAGE}:${BUILD_NUMBER}
                 docker push ${DOCKER_IMAGE}:latest
                 """
             }
