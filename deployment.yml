@@ -16,6 +16,6 @@ spec:
     spec:
       containers:
       - name: exam-container
-        image: ghandgevikas/devopsexamapp:latest  # Replace with your Docker image
+        image: adaleshri/devopsexamapp:latest  # Replace with your Docker image
         ports:
         - containerPort: 5000  # Replace with the port your app runs on
