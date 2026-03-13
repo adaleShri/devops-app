@@ -4,6 +4,9 @@ pipeline {
     environment {
         DOCKER_IMAGE = "adaleshri/devopsexamapp:latest"
         SCANNER_HOME = tool 'sonar-scanner'
+        EKS_CLUSTER = "devops-app"
+        K8S_NAMESPACE = "devopsexamapp"
+        AWS_REGION = "ap-south-1"  // Update to your region
     }
 
     stages {
@@ -69,61 +72,44 @@ pipeline {
                 }
             }
         }
-
-        stage('Deploy with Docker Compose') {
+      stages {
+        // Existing stages (Git Checkout, Build, Push) remain the same
+        
+        stage('Deploy to EKS') {
             steps {
-                sh '''
-                # Clean up any existing containers
-                docker compose down --remove-orphans || true
-                
-                # Start services (no --build needed since we pre-built the image)
-                docker compose up -d
-                
-                # Wait for MySQL to be ready
-                echo "Waiting for MySQL to be ready..."
-                timeout 120s bash -c '
-                while ! docker compose exec -T mysql mysqladmin ping -uroot -prootpass --silent;
-                do 
-                    sleep 5;
-                    docker compose logs mysql --tail=5 || true;
-                done'
-                
-                # Additional wait for full initialization
-                sleep 10
-                '''
+                script {
+                    withCredentials([[
+                        $class: 'AmazonWebServicesCredentialsBinding',
+                        credentialsId: 'aws-creds',
+                        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                    ]]) {
+                        sh """
+                        # Configure EKS access
+                        aws eks update-kubeconfig --name ${EKS_CLUSTER} --region ${AWS_REGION}
+                        
+                        # Create namespace if not exists
+                        kubectl create namespace ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+                        
+                        # Create image pull secret
+                        kubectl create secret docker-registry dockerhub-creds \\
+                            --docker-server=https://index.docker.io/v1/ \\
+                            --docker-username=kastrov \\
+                            --docker-password=\$(cat /var/jenkins_home/docker-creds/password) \\
+                            --namespace=${K8S_NAMESPACE} \\
+                            --dry-run=client -o yaml | kubectl apply -f -
+                        
+                        # Apply Kubernetes manifests from root
+                        kubectl apply -f deployment.yml
+                        kubectl apply -f service.yml
+                        
+                        # Verify deployment
+                        kubectl rollout status deployment/devopsexamapp -n ${K8S_NAMESPACE}
+                        """
+                    }
+                }
             }
-        }
-
-        stage('Verify Deployment') {
-            steps {
-                sh '''
-                echo "=== Container Status ==="
-                docker compose ps -a
-                echo "=== Testing Flask Endpoint ==="
-                curl -I http://localhost:5000 || true
-                '''
-            }
-        }
-    }
-
-    post {
-        success {
-            echo '🚀 Deployment successful!'
-            sh 'docker compose ps'
-            sh 'docker images | grep devopsexamapp'  // Verify image exists
-        }
-        failure {
-            echo '❗ Pipeline failed. Check logs above.'
-            sh '''
-            echo "=== Error Investigation ==="
-            docker compose logs --tail=50 || true
-            '''
-        }
-        always {
-            sh '''
-            echo "=== Final Logs ==="
-            docker compose logs --tail=20 || true
-            '''
         }
     }
 }
+       
