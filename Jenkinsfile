@@ -7,7 +7,7 @@ environment {
     SCANNER_HOME = tool 'sonar-scanner'
     EKS_CLUSTER = "devops-app"
     K8S_NAMESPACE = "exam-app"
-    AWS_REGION = "ap-south-1"
+    AWS_REGION = "ap-south-1" #juu
 }
 
 stages {
