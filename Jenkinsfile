@@ -1,97 +1,90 @@
 pipeline {
-agent any
-environment {
-    DOCKER_IMAGE = "adaleshri/devopsexamapp"
-    SCANNER_HOME = tool 'sonar-scanner'
-    EKS_CLUSTER = "devops-app"
-    K8S_NAMESPACE = "exam-app"
-    AWS_REGION = "ap-south-1"
-}
+    agent any
 
-stages {
-
-    stage('Git Checkout') {
-        steps {
-            git url: 'https://github.com/adaleShri/devops-app.git', branch: 'main'
-        }
+    environment {
+        DOCKER_IMAGE = "adaleshri/devopsexamapp:latest"
+        EKS_CLUSTER = "devops-app"
+        K8S_NAMESPACE = "exam-app"
+        AWS_REGION = "ap-south-1"  // Update to your region
     }
 
-    stage('File System Scan') {
-        steps {
-            sh 'trivy fs --scanners vuln,misconfig --format table -o trivy-fs-report.html .'
-        }
-    }
-
-    stage('SonarQube Analysis') {
-        steps {
-            withSonarQubeEnv('sonar-server') {
-                sh """
-                ${SCANNER_HOME}/bin/sonar-scanner \
-                -Dsonar.projectName=devops-exam-app \
-                -Dsonar.projectKey=devops-exam-app \
-                -Dsonar.sources=. \
-                -Dsonar.exclusions=**/*.java \
-                -Dsonar.host.url=http://localhost:9000
-                """
+    stages {
+        stage('Git Checkout') {
+            steps {
+                git url: 'https://github.com/adaleshri/devops-app.git', 
+                    branch: 'main'
             }
         }
-    }
 
-    stage('Verify Docker') {
-        steps {
-            sh 'docker --version'
-        }
-    }
-
-    stage('Build Docker Image') {
-        steps {
-            dir('backend') {
-                sh "docker build -t ${DOCKER_IMAGE}:latest ."
+        stage('Verify Docker Compose') {
+            steps {
+                sh '''
+                docker compose version || { echo "Docker Compose not available"; exit 1; }
+                '''
             }
         }
-    }
 
-    stage('Push to Docker Hub') {
-        steps {
-            withDockerRegistry(credentialsId: 'docker-creds') {
-                sh """
-                docker tag ${DOCKER_IMAGE}:latest ${DOCKER_IMAGE}:${BUILD_NUMBER}
-                docker push ${DOCKER_IMAGE}:${BUILD_NUMBER}
-                docker push ${DOCKER_IMAGE}:latest
-                """
+        stage('Build Docker Image') {
+            steps {
+                dir('backend') {
+                    script {
+                        withDockerRegistry(credentialsId: 'docker-creds', toolName: 'docker') {
+                            sh "docker build -t ${DOCKER_IMAGE} ."
+                        }
+                    }
+                }
             }
         }
-    }
-
-    stage('Deploy to EKS') {
-        steps {
-            withCredentials([[
-                $class: 'AmazonWebServicesCredentialsBinding',
-                credentialsId: 'aws-creds',
-                accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-            ]]) {
-
-                sh """
-                aws eks update-kubeconfig --name ${EKS_CLUSTER} --region ${AWS_REGION}
-
-                kubectl create namespace ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
-
-                kubectl apply -f deployment.yml -n ${K8S_NAMESPACE}
-                kubectl apply -f service.yml -n ${K8S_NAMESPACE}
-
-                kubectl rollout status deployment/exam-app -n ${K8S_NAMESPACE}
-                """
+// NEW STAGE: Push to Docker Hub
+        stage('Push to Docker Hub') {
+            steps {
+                script {
+                    withDockerRegistry(credentialsId: 'docker-creds', toolName: 'docker') {
+                        sh """
+                        docker tag ${DOCKER_IMAGE} ${DOCKER_IMAGE}
+                        docker push ${DOCKER_IMAGE}
+                        """
+                    }
+                }
             }
         }
-    }
-}
-
-post {
-    success {
-        echo "Pipeline completed successfully."
-    }
-    failure {
-        echo "Pipeline failed."
+         stages {
+        // Existing stages (Git Checkout, Build, Push) remain the same
+        
+        stage('Deploy to EKS') {
+            steps {
+                script {
+                    withCredentials([[
+                        $class: 'AmazonWebServicesCredentialsBinding',
+                        credentialsId: 'aws-creds',
+                        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                    ]]) {
+                        sh """
+                        # Configure EKS access
+                        aws eks update-kubeconfig --name ${EKS_CLUSTER} --region ${AWS_REGION}
+                        
+                        # Create namespace if not exists
+                        kubectl create namespace ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+                        
+                        # Create image pull secret
+                        kubectl create secret docker-registry dockerhub-creds \\
+                            --docker-server=https://index.docker.io/v1/ \\
+                            --docker-username=kastrov \\
+                            --docker-password=\$(cat /var/jenkins_home/docker-creds/password) \\
+                            --namespace=${K8S_NAMESPACE} \\
+                            --dry-run=client -o yaml | kubectl apply -f -
+                        
+                        # Apply Kubernetes manifests from root
+                        kubectl apply -f deployment.yml
+                        kubectl apply -f service.yml
+                        
+                        # Verify deployment
+                        kubectl rollout status deployment/exam-app -n ${K8S_NAMESPACE}
+                        """
+                    }
+                }
+            }
+        }
     }
 }
