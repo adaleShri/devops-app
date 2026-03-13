@@ -89,14 +89,3 @@ stages {
     }
 }
 
-post {
-    success {
-        echo "Pipeline completed successfully. Application deployed to EKS."
-    }
-    failure {
-        echo "Pipeline failed. Check logs."
-    }
-}
-```
-
-}
