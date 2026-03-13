@@ -5,7 +5,7 @@ pipeline {
         DOCKER_IMAGE = "adaleshri/devopsexamapp"
         SCANNER_HOME = tool 'sonar-scanner'
         EKS_CLUSTER = "devops-app"
-        K8S_NAMESPACE = "devopsexamapp"
+        K8S_NAMESPACE = "exam-app"
         AWS_REGION = "ap-south-1"
     }
 
