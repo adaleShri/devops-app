@@ -92,7 +92,7 @@ pipeline {
                         kubectl apply -f deployment.yml
                         kubectl apply -f service.yml
 
-                        kubectl rollout status deployment/devopsexamapp -n ${K8S_NAMESPACE}
+                        kubectl rollout status deployment/exam-app -n ${K8S_NAMESPACE}
                         """
                     }
                 }
