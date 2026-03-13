@@ -56,8 +56,7 @@ pipeline {
             }
         }
 
-        // NEW STAGE: Push to Docker Hub
-stage('Push to Docker Hub') {
+        stage('Push to Docker Hub') {
     steps {
         script {
             def IMAGE_TAG = "${BUILD_NUMBER}"
