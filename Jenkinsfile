@@ -1,20 +1,18 @@
 pipeline {
 agent any
-
-```
 environment {
     DOCKER_IMAGE = "adaleshri/devopsexamapp"
     SCANNER_HOME = tool 'sonar-scanner'
     EKS_CLUSTER = "devops-app"
     K8S_NAMESPACE = "exam-app"
-    AWS_REGION = "ap-south-1" #juu
+    AWS_REGION = "ap-south-1"
 }
 
 stages {
 
     stage('Git Checkout') {
         steps {
-            git url: 'https://github.com/adaleshri/devops-exam-app.git', branch: 'main'
+            git url: 'https://github.com/adaleShri/devops-app.git', branch: 'main'
         }
     }
 
@@ -89,3 +87,11 @@ stages {
     }
 }
 
+post {
+    success {
+        echo "Pipeline completed successfully."
+    }
+    failure {
+        echo "Pipeline failed."
+    }
+}
