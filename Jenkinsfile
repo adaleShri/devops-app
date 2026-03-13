@@ -87,13 +87,12 @@ pipeline {
                         sh """
                         aws eks update-kubeconfig --name ${EKS_CLUSTER} --region ${AWS_REGION}
 
-                        kubectl create namespace ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+                        kubectl create namespace exam-app --dry-run=client -o yaml | kubectl apply -f -
 
-                        kubectl apply -f deployment.yml
-                        kubectl apply -f service.yml
+                        kubectl apply -f deployment.yml -n exam-app
+                        kubectl apply -f service.yml -n exam-app
 
-                        kubectl rollout status deployment/exam-app -n ${K8S_NAMESPACE}
-                        """
+                        kubectl rollout status deployment/exam-app -n exam-app
                     }
                 }
             }
