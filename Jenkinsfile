@@ -1,55 +1,4 @@
 pipeline {
-    agent any
-
-    environment {
-        DOCKER_IMAGE = "adaleshri/devopsexamapp:latest"
-        EKS_CLUSTER = "devops-app"
-        K8S_NAMESPACE = "exam-app"
-        AWS_REGION = "ap-south-1"  // Update to your region
-    }
-    }
-
-    stages {
-        stage('Git Checkout') {
-            steps {
-                git url: 'https://github.com/adaleshri/devops-exam-app.git', 
-                    branch: 'main'
-            }
-        }
-
-        stage('Verify Docker Compose') {
-            steps {
-                sh '''
-                docker compose version || { echo "Docker Compose not available"; exit 1; }
-                '''
-            }
-        }
-
-        stage('Build Docker Image') {
-            steps {
-                dir('backend') {
-                    script {
-                        withDockerRegistry(credentialsId: 'docker-creds', toolName: 'docker') {
-                            sh "docker build -t ${DOCKER_IMAGE} ."
-                        }
-                    }
-                }
-            }
-        }
-        / NEW STAGE: Push to Docker Hub
-        stage('Push to Docker Hub') {
-            steps {
-                script {
-                    withDockerRegistry(credentialsId: 'docker-creds', toolName: 'docker') {
-                        sh """
-                        docker tag ${DOCKER_IMAGE} ${DOCKER_IMAGE}
-                        docker push ${DOCKER_IMAGE}
-                        """
-                    }
-                }
-            }
-        }
-        pipeline {
 agent any
 
 ```
@@ -65,7 +14,7 @@ stages {
 
     stage('Git Checkout') {
         steps {
-            git url: 'https://github.com/adaleShri/devops-app.git', branch: 'main'
+            git url: 'https://github.com/adaleshri/devops-exam-app.git', branch: 'main'
         }
     }
 
