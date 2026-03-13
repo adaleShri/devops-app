@@ -56,20 +56,19 @@ pipeline {
             }
         }
 
-        // NEW STAGE: Push to Docker Hub
-stage('Push to Docker Hub') {
-    steps {
-        script {
-            withDockerRegistry(credentialsId: 'docker-creds', toolName: 'docker') {
-                sh """
-                docker tag ${DOCKER_IMAGE}:latest ${DOCKER_IMAGE}:${BUILD_NUMBER}
-                docker push ${DOCKER_IMAGE}:${BUILD_NUMBER}
-                docker push ${DOCKER_IMAGE}:latest
-                """
+       // NEW STAGE: Push to Docker Hub
+        stage('Push to Docker Hub') {
+            steps {
+                script {
+                    withDockerRegistry(credentialsId: 'docker-creds', toolName: 'docker') {
+                        sh """
+                        docker tag ${DOCKER_IMAGE} ${DOCKER_IMAGE}
+                        docker push ${DOCKER_IMAGE}
+                        """
+                    }
+                }
             }
         }
-    }
-}
 
         stage('Deploy with Docker Compose') {
             steps {
