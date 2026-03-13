@@ -75,28 +75,26 @@ pipeline {
         }
 
         stage('Deploy to EKS') {
-            steps {
-                script {
-                    withCredentials([[
-                        $class: 'AmazonWebServicesCredentialsBinding',
-                        credentialsId: 'aws-creds',
-                        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-                    ]]) {
+    steps {
+        script {
+            withCredentials([[
+                $class: 'AmazonWebServicesCredentialsBinding',
+                credentialsId: 'aws-creds',
+                accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+            ]]) {
 
-                        sh """
-                        aws eks update-kubeconfig --name ${EKS_CLUSTER} --region ${AWS_REGION}
+                sh """
+                aws eks update-kubeconfig --name ${EKS_CLUSTER} --region ${AWS_REGION}
 
-                        kubectl create namespace exam-app --dry-run=client -o yaml | kubectl apply -f -
+                kubectl create namespace ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
 
-                        kubectl apply -f deployment.yml -n exam-app
-                        kubectl apply -f service.yml -n exam-app
+                kubectl apply -f deployment.yml -n ${K8S_NAMESPACE}
+                kubectl apply -f service.yml -n ${K8S_NAMESPACE}
 
-                        kubectl rollout status deployment/exam-app -n exam-app
-                    }
-                }
+                kubectl rollout status deployment/exam-app -n ${K8S_NAMESPACE}
+                """
             }
         }
-
     }
 }
