@@ -1,64 +1,59 @@
 pipeline {
-agent any
+    agent any
 
-```
-environment {
-    DOCKER_IMAGE = "adaleshri/devopsexamapp"
-    SCANNER_HOME = tool 'sonar-scanner'
-    EKS_CLUSTER = "devops-app"
-    K8S_NAMESPACE = "exam-app"
-    AWS_REGION = "ap-south-1"
-}
-
-stages {
-
-    stage('Git Checkout') {
-        steps {
-            git url: 'https://github.com/adaleshri/devops-app.git', branch: 'main'
-        }
+    environment {
+        DOCKER_IMAGE = "adaleshri/devopsexamapp"
+        SCANNER_HOME = tool 'sonar-scanner'
+        EKS_CLUSTER = "devops-app"
+        K8S_NAMESPACE = "exam-app"
+        AWS_REGION = "ap-south-1"
     }
 
-    stage('File System Scan (Trivy)') {
-        steps {
-            sh "trivy fs --scanners vuln,misconfig --format table -o trivy-fs-report.html ."
-        }
-    }
+    stages {
 
-    stage('SonarQube Analysis') {
-        steps {
-            withSonarQubeEnv('sonar-server') {
-                sh """
-                ${SCANNER_HOME}/bin/sonar-scanner \
-                -Dsonar.projectName=devops-exam-app \
-                -Dsonar.projectKey=devops-exam-app \
-                -Dsonar.sources=. \
-                -Dsonar.exclusions=**/*.java \
-                -Dsonar.python.version=3 \
-                -Dsonar.host.url=http://localhost:9000
-                """
+        stage('Git Checkout') {
+            steps {
+                git url: 'https://github.com/adaleshri/devops-app.git', branch: 'main'
             }
         }
-    }
 
-    stage('Verify Docker') {
-        steps {
-            sh 'docker --version'
+        stage('File System Scan') {
+            steps {
+                sh 'trivy fs --scanners vuln,misconfig --format table -o trivy-fs-report.html .'
+            }
         }
-    }
 
-    stage('Build Docker Image') {
-        steps {
-            dir('backend') {
-                script {
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('sonar-server') {
+                    sh """
+                    ${SCANNER_HOME}/bin/sonar-scanner \
+                    -Dsonar.projectName=devops-exam-app \
+                    -Dsonar.projectKey=devops-exam-app \
+                    -Dsonar.sources=. \
+                    -Dsonar.exclusions=**/*.java \
+                    -Dsonar.host.url=http://localhost:9000
+                    """
+                }
+            }
+        }
+
+        stage('Verify Docker') {
+            steps {
+                sh 'docker --version'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                dir('backend') {
                     sh "docker build -t ${DOCKER_IMAGE}:latest ."
                 }
             }
         }
-    }
 
-    stage('Push to Docker Hub') {
-        steps {
-            script {
+        stage('Push to Docker Hub') {
+            steps {
                 withDockerRegistry(credentialsId: 'docker-creds', toolName: 'docker') {
                     sh """
                     docker tag ${DOCKER_IMAGE}:latest ${DOCKER_IMAGE}:${BUILD_NUMBER}
@@ -68,11 +63,9 @@ stages {
                 }
             }
         }
-    }
 
-    stage('Deploy to EKS') {
-        steps {
-            script {
+        stage('Deploy to EKS') {
+            steps {
                 withCredentials([[
                     $class: 'AmazonWebServicesCredentialsBinding',
                     credentialsId: 'aws-creds',
@@ -94,16 +87,13 @@ stages {
             }
         }
     }
-}
 
-post {
-    success {
-        echo "Pipeline completed successfully. Application deployed to EKS."
+    post {
+        success {
+            echo 'Pipeline completed successfully!'
+        }
+        failure {
+            echo 'Pipeline failed!'
+        }
     }
-    failure {
-        echo "Pipeline failed. Please check the logs."
-    }
-}
-```
-
 }
