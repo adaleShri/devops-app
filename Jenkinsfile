@@ -2,21 +2,23 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = "adaleshri/devopsexamapp:latest"
+        DOCKER_IMAGE = "adaleshri/devopsexamapp"
         SCANNER_HOME = tool 'sonar-scanner'
         EKS_CLUSTER = "devops-app"
         K8S_NAMESPACE = "devopsexamapp"
-        AWS_REGION = "ap-south-1"  // Update to your region
+        AWS_REGION = "ap-south-1"
     }
 
     stages {
+
         stage('Git Checkout') {
             steps {
-                git url: 'https://github.com/adaleshri/devops-app.git', 
+                git url: 'https://github.com/adaleshri/devops-app.git',
                     branch: 'main'
             }
         }
-         stage('File System Scan') {
+
+        stage('File System Scan') {
             steps {
                 sh "trivy fs --scanners vuln,misconfig --format table -o trivy-fs-report.html ."
             }
@@ -26,18 +28,17 @@ pipeline {
             steps {
                 withSonarQubeEnv('sonar-server') {
                     sh """
-                        ${SCANNER_HOME}/bin/sonar-scanner \
-                        -Dsonar.projectName=devops-exam-app \
-                        -Dsonar.projectKey=devops-exam-app \
-                        -Dsonar.sources=. \
-                        -Dsonar.exclusions=**/*.java \
-                        -Dsonar.python.version=3 \
-                        -Dsonar.host.url=http://localhost:9000
+                    ${SCANNER_HOME}/bin/sonar-scanner \
+                    -Dsonar.projectName=devops-exam-app \
+                    -Dsonar.projectKey=devops-exam-app \
+                    -Dsonar.sources=. \
+                    -Dsonar.exclusions=**/*.java \
+                    -Dsonar.python.version=3 \
+                    -Dsonar.host.url=http://localhost:9000
                     """
                 }
             }
         }
-
 
         stage('Verify Docker Compose') {
             steps {
@@ -52,29 +53,27 @@ pipeline {
                 dir('backend') {
                     script {
                         withDockerRegistry(credentialsId: 'docker-creds', toolName: 'docker') {
-                            sh "docker build -t ${DOCKER_IMAGE} ."
+                            sh "docker build -t ${DOCKER_IMAGE}:latest ."
                         }
                     }
                 }
             }
         }
 
-       // NEW STAGE: Push to Docker Hub
         stage('Push to Docker Hub') {
             steps {
                 script {
                     withDockerRegistry(credentialsId: 'docker-creds', toolName: 'docker') {
                         sh """
-                        docker tag ${DOCKER_IMAGE} ${DOCKER_IMAGE}
-                        docker push ${DOCKER_IMAGE}
+                        docker tag ${DOCKER_IMAGE}:latest ${DOCKER_IMAGE}:${BUILD_NUMBER}
+                        docker push ${DOCKER_IMAGE}:${BUILD_NUMBER}
+                        docker push ${DOCKER_IMAGE}:latest
                         """
                     }
                 }
             }
         }
-      stages {
-        // Existing stages (Git Checkout, Build, Push) remain the same
-        
+
         stage('Deploy to EKS') {
             steps {
                 script {
@@ -84,32 +83,21 @@ pipeline {
                         accessKeyVariable: 'AWS_ACCESS_KEY_ID',
                         secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
                     ]]) {
+
                         sh """
-                        # Configure EKS access
                         aws eks update-kubeconfig --name ${EKS_CLUSTER} --region ${AWS_REGION}
-                        
-                        # Create namespace if not exists
+
                         kubectl create namespace ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
-                        
-                        # Create image pull secret
-                        kubectl create secret docker-registry dockerhub-creds \\
-                            --docker-server=https://index.docker.io/v1/ \\
-                            --docker-username=kastrov \\
-                            --docker-password=\$(cat /var/jenkins_home/docker-creds/password) \\
-                            --namespace=${K8S_NAMESPACE} \\
-                            --dry-run=client -o yaml | kubectl apply -f -
-                        
-                        # Apply Kubernetes manifests from root
+
                         kubectl apply -f deployment.yml
                         kubectl apply -f service.yml
-                        
-                        # Verify deployment
+
                         kubectl rollout status deployment/devopsexamapp -n ${K8S_NAMESPACE}
                         """
                     }
                 }
             }
         }
+
     }
 }
-       
