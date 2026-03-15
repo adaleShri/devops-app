@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         // Dynamic tagging for traceability (Industry Standard)
-        DOCKER_IMAGE = "adaleshri/devopsexamapp:${BUILD_NUMBER}"
+        DOCKER_IMAGE = "adaleshri/devopsexamapp"
         SONAR_SERVER = 'SonarQube'
         SCANNER_HOME = tool 'SonarScanner' // Tool name from Global Tool Config
     }
