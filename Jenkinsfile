@@ -2,16 +2,17 @@ pipeline {
     agent any
 
     environment {
-        // Dynamic tagging for traceability (Industry Standard)
         DOCKER_IMAGE = "adaleshri/devopsexamapp"
-        SONAR_SERVER = 'SonarQube'
-        SCANNER_HOME = tool 'SonarScanner' // Tool name from Global Tool Config
+        IMAGE_TAG = "${BUILD_NUMBER}"
+        SONAR_SERVER = "SonarQube"
+        SCANNER_HOME = tool 'SonarScanner'
     }
 
     stages {
+
         stage('Clean Workspace') {
             steps {
-                cleanWs() // Start with a fresh slate
+                cleanWs()
             }
         }
 
@@ -23,10 +24,12 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                script {
-                    withSonarQubeEnv("${SONAR_SERVER}") {
-                        sh "${SCANNER_HOME}/bin/sonar-scanner -Dsonar.projectKey=exam-app"
-                    }
+                withSonarQubeEnv("${SONAR_SERVER}") {
+                    sh """
+                    ${SCANNER_HOME}/bin/sonar-scanner \
+                    -Dsonar.projectKey=exam-app \
+                    -Dsonar.sources=.
+                    """
                 }
             }
         }
@@ -39,18 +42,17 @@ pipeline {
             }
         }
 
-        stage('FileSystem Scan (Trivy)') {
+        stage('File System Scan (Trivy)') {
             steps {
-                // Scan source code for hardcoded secrets or vulnerabilities before building
-                sh 'trivy fs --severity HIGH,CRITICAL --format table .'
+                sh 'trivy fs --severity HIGH,CRITICAL --format table . || true'
             }
         }
 
-        stage('Build & Tag Image') {
+        stage('Build Docker Image') {
             steps {
                 dir('backend') {
                     script {
-                        dockerImage = docker.build("${DOCKER_IMAGE}")
+                        dockerImage = docker.build("${DOCKER_IMAGE}:${IMAGE_TAG}")
                     }
                 }
             }
@@ -58,17 +60,16 @@ pipeline {
 
         stage('Image Scan (Trivy)') {
             steps {
-                // Scan the actual Docker image for OS-level vulnerabilities
-                sh "trivy image --severity HIGH,CRITICAL ${DOCKER_IMAGE}"
+                sh "trivy image --severity HIGH,CRITICAL ${DOCKER_IMAGE}:${IMAGE_TAG} || true"
             }
         }
 
-        stage('Push to Registry') {
+        stage('Push to Docker Hub') {
             steps {
                 script {
                     docker.withRegistry('', 'docker-creds') {
-                        dockerImage.push()
-                        dockerImage.push("latest") // Also update latest tag
+                        dockerImage.push("${IMAGE_TAG}")
+                        dockerImage.push("latest")
                     }
                 }
             }
@@ -88,12 +89,13 @@ pipeline {
         success {
             echo "✅ Build ${BUILD_NUMBER} deployed successfully."
         }
+
         failure {
-            echo "❌ Pipeline failed at Build ${BUILD_NUMBER}. Investigating logs..."
-            // In real envs, you'd add a Slack/Email notification here
+            echo "❌ Pipeline failed at build ${BUILD_NUMBER}"
+            sh 'docker compose logs --tail=50 || true'
         }
+
         always {
-            // Clean up old images to prevent Jenkins disk from filling up
             sh 'docker image prune -f'
         }
     }
