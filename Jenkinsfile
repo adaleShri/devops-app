@@ -5,7 +5,7 @@ pipeline {
         DOCKER_IMAGE = "adaleshri/devopsexamapp"
         IMAGE_TAG = "${BUILD_NUMBER}"
         SONAR_SERVER = "SonarQube"
-        SCANNER_HOME = tool 'SonarScanner'
+        SCANNER_HOME = tool 'Sonar-Scanner'
     }
 
     stages {
